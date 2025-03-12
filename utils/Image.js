@@ -3,6 +3,16 @@ const images = [
         id: '800x600',
         src: 'assets/images/800x600.jpg',
         img: new Image()
+    },
+    {
+        id: 'floor',
+        src: 'assets/images/floor.jpg',
+        img: new Image()
+    },
+    {
+        id: 'hole1',
+        src: 'assets/images/hole1.jpg',
+        img: new Image()
     }
 ];
 

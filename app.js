@@ -1,8 +1,9 @@
-import { mapData } from './constants/mapData.js';
+import { level1 } from './constants/level1.js';
 import { clearCanvas, shadeCanvas } from './utils/Canvas.js';
 import { findImageById, areAllImageAssetsLoaded } from './utils/Image.js';
 import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN } from './utils/Input.js';
 import { handleKeyPresses } from './utils/Input.js';
+import BitmapSlice from './components/BitmapSlice.js';
 
 const context = document.getElementById('canvas').getContext('2d');
 context.imageSmoothingEnabled = false;
@@ -14,7 +15,7 @@ const state = {
     player: {
         x: 258.2,
         y: 221.7,
-        rotation: 0,
+        rotation: 90,
         speed: 3,
         height: 300 // vertical viewing angle
     },
@@ -25,7 +26,13 @@ const state = {
     downHeld: false,
     rightHeld: false,
     leftHeld: false,
-    assetsLoaded: false
+    assetsLoaded: false,
+    scaleAmplitude: .1,
+    startScale: .5,
+    startAngle: 0,
+    startX: 0,
+    startY: 0,
+    pixelsPerSlice: 1, // determines the resolution of the (floor) projection. the lower, the better
 };
 
 window.addEventListener(
@@ -116,19 +123,49 @@ const getShortestRayToWallSegment = (rayRotation) => {
         let gridY = Math.floor(rayY / state.resolution);
 
         // calculated grid cell is out of bounds, break the loop
-        if (gridX < 0 || gridX >= mapData[0].length ||
-            gridY < 0 || gridY >= mapData.length) {
-            return { distance, verticalHit };
+        if (gridX < 0 || gridX >= level1[0].length ||
+            gridY < 0 || gridY >= level1.length) {
+            return { distance, verticalHit: null };
         }
 
         // calculated grid cell is a wall unit, break the loop
-        if (mapData[gridY][gridX] === 1) {
+        if (level1[gridY][gridX] === 1) {
             hit = true;
             break;
         }
     }
 
     return { distance, verticalHit };
+};
+
+const drawFloor = () => {
+    const cfg = {
+        startScale: state.startScale,
+        scaleAmplitude: state.scaleAmplitude,
+        dimensions: {
+            startX: 0,
+            endX: 800,
+            startY: 300,
+            endY: 600,
+        },
+        pixelsPerSlice: state.pixelsPerSlice,
+        pivotPoint: { x: 400, y: 300 }
+    };
+
+    const sliceCount = (cfg.dimensions.endY - cfg.dimensions.startY) / cfg.pixelsPerSlice;
+
+    for (let index = 0; index < sliceCount; index++ ) {
+        let slice = new BitmapSlice(
+            context,
+            findImageById('floor')
+        );
+
+        slice.draw(
+            cfg,
+            state.player,
+            index
+        );
+    }
 };
 
 // draw a pseudo-3d projection consisting of 1px-wide segments, based on position and rotation of the player, mapped to the grid in mapData
@@ -176,7 +213,9 @@ const drawProjection = () => {
                 hitOffset = fracY;
             }
         } else {
-            hitOffset = hitResult.verticalHit ? fracY : fracX;
+            if (hitResult.verticalHit !== null) {
+                hitOffset = hitResult.verticalHit ? fracY : fracX;
+            }
         }
 
         // map the hit offset to a coordinate of the texture (based on the texture's width)
@@ -190,14 +229,17 @@ const drawProjection = () => {
             1, destHeight       // destination width and height
         );
 
-        shadeCanvas(context, rayLength, {x: ray, y: destY, w: 1, h: destHeight})
+        if (hitResult.verticalHit !== null) {
+            shadeCanvas(context, rayLength, {x: ray, y: destY, w: 1, h: destHeight})
+        }
     }
 };
 
 const update = () => {
-    clearCanvas(context);
+    clearCanvas(context, '#000000', 'outside');
 
     if (state.assetsLoaded) {
+        drawFloor();
         drawProjection();
         handleKeyPresses(state, getNewCoordsForAngle);
     } else if (areAllImageAssetsLoaded()) {
