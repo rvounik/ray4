@@ -44,20 +44,19 @@ export default class BitmapSlice {
         // reset translation used to draw clipping mask: the image rendered 'inside' should not be affected by it
         context.translate(-0, -pixelsPerSlice);
 
-        context.translate(pivotPoint.x, pivotPoint.y - index); // by subtracting the index, the rotation point is visually fixed on screen
+        context.translate(pivotPoint.x, pivotPoint.y + 600); // to fit in with the ray casting projection, the vantage/rotation point needs to be far away
 
         // scale the canvas: the 'lower' the clip is positioned, the more it should zoom in to simulate depth (with scaleAmplitude to enhance the effect)
-        // old: startScale + (scaleAmplitude * (index * player.height)),
         context.scale(
             startScale + (scaleAmplitude * index),
             startScale + (scaleAmplitude * index)
         );
 
-        // rotate canvas to match player angle
-        context.rotate(player.rotation * Math.PI / 180);
+        // rotate canvas to match player angle (subtract from 90 because world coordinates dont match texture direction)
+        context.rotate((90 - player.rotation ) * Math.PI / 180);
 
-        // move canvas to match player x, y
-        context.translate(player.x, player.y);
+        // move canvas to match player x, y (magic number needed here to find the right balance between scale and movement)
+        context.translate(player.x / 3, player.y / 3);
 
         // reset center point translation (note that it retains the offset applied when setting the center point. this way the image is visually moved inside)
         context.translate(-pivotPoint.x, -pivotPoint.y);

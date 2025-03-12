@@ -13,9 +13,9 @@ context.msImageSmoothingEnabled = false;
 
 const state = {
     player: {
-        x: 258.2,
-        y: 221.7,
-        rotation: 90,
+        x: 150,
+        y: 150,
+        rotation:359,
         speed: 3,
         height: 300 // vertical viewing angle
     },
@@ -27,7 +27,7 @@ const state = {
     rightHeld: false,
     leftHeld: false,
     assetsLoaded: false,
-    scaleAmplitude: .1,
+    scaleAmplitude: 0.1,
     startScale: .5,
     startAngle: 0,
     startX: 0,
