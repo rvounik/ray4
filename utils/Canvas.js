@@ -1,4 +1,3 @@
-
 const gradients = [
     {
         id: 'dungeon',

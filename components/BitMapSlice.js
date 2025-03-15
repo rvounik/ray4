@@ -27,7 +27,7 @@ export default class BitmapSlice {
     draw(cfg, player, index) {
         const context = this.context;
 
-        const { startScale, scaleAmplitude, pixelsPerSlice, pivotPoint } = cfg;
+        const { startScale, scaleAmplitude, pixelsPerSlice, pivotPoint, translationSpeed } = cfg;
         const { startX, endX, startY, endY } = cfg.dimensions;
 
         context.save();
@@ -44,7 +44,7 @@ export default class BitmapSlice {
         // reset translation used to draw clipping mask: the image rendered 'inside' should not be affected by it
         context.translate(-0, -pixelsPerSlice);
 
-        context.translate(pivotPoint.x, pivotPoint.y + 600); // to fit in with the ray casting projection, the vantage/rotation point needs to be far away
+        context.translate(pivotPoint.x, pivotPoint.y);
 
         // scale the canvas: the 'lower' the clip is positioned, the more it should zoom in to simulate depth (with scaleAmplitude to enhance the effect)
         context.scale(
@@ -52,16 +52,20 @@ export default class BitmapSlice {
             startScale + (scaleAmplitude * index)
         );
 
-        // rotate canvas to match player angle (subtract from 90 because world coordinates dont match texture direction)
+
+        // adjust floor rotation: compensate for the floor texture being rotated 90 degrees relative to the players forward direction
         context.rotate((90 - player.rotation ) * Math.PI / 180);
 
-        // move canvas to match player x, y (magic number needed here to find the right balance between scale and movement)
-        context.translate(player.x / 3, player.y / 3);
+        // move canvas to match player x, y (translationSpeed is a magic number needed here to find the right balance between scale and movement)
+        context.translate(player.x / translationSpeed, player.y / translationSpeed);
 
-        // reset center point translation (note that it retains the offset applied when setting the center point. this way the image is visually moved inside)
+        // offset to make texture fit
+        context.translate(-cfg.dimensions.offsetX, cfg.dimensions.offsetY);
+
+        // reset center point translation (note that it retains the offset applied when setting the center point. this way the image moves inside the slice)
         context.translate(-pivotPoint.x, -pivotPoint.y);
 
-        // note that not much is used of the drawing API since the canvas is manipulated instead
+        // not much is used of the drawing API since the canvas is manipulated instead
         context.drawImage(
             this.imageId['img'],
             0, 0
