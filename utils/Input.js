@@ -5,6 +5,7 @@ export const KEYCODE_LEFT = 37;
 export const KEYCODE_RIGHT = 39;
 export const KEYCODE_UP = 38;
 export const KEYCODE_DOWN = 40;
+export const KEYCODE_SHIFT = 16;
 
 /** check if given x,y is on a non-traversable tile in the grid array */
 const checkWallCollision = (x, y) => {
@@ -65,6 +66,46 @@ export const handleKeyPresses = (state) => {
     }
 };
 
+/**
+ * Check if there is a context provided matching the clicked mouse coordinates, then execute its associated action
+ */
+// export const mouseDownHandler = event => {
+//     state.mouseDown = true;
+//
+//     let mouseX = (event.clientX - document.getElementById("canvas").offsetLeft);
+//     let mouseY = (event.clientY - document.getElementById("canvas").offsetTop);
+//
+//     if (mouseX < 0 || mouseX > 800 || mouseY < 0 || mouseY > 600) {
+//         return false;
+//     } else {
+//         state.mouseX = mouseX;
+//         state.mouseY = mouseY;
+//         state.clickableContexts.map(clickableContext => {
+//             if (mouseX > clickableContext.x
+//                 && mouseX < clickableContext.x + clickableContext.width
+//                 && mouseY > clickableContext.y
+//                 && mouseY < clickableContext.y + clickableContext.height
+//             ) {
+//
+//                 // store action in state so it runs as long as mouseup event is not triggered
+//                 if (clickableContext.repeat) {
+//                     state.mouseDownAction = () => { clickableContext.action(); };
+//                 }
+//
+//                 clickableContext.action();
+//             }
+//         });
+//     }
+// };
+
+/**
+ * Cancels the mousedown and removes the stored action
+ */
+const mouseUpHandler = () => {
+    state.mouseDown = false;
+    state.mouseDownAction = null;
+};
+
 export default function createInputHandlers(state) {
     const handleKeyDown = (event) => {
         switch (event.keyCode) {
@@ -84,6 +125,9 @@ export default function createInputHandlers(state) {
                 state.controls.upHeld = false;
                 state.controls.downHeld = true;
                 break;
+            case KEYCODE_SHIFT:
+                state.controls.fireHeld = true;
+                break;
         }
     };
 
@@ -100,6 +144,10 @@ export default function createInputHandlers(state) {
                 break;
             case KEYCODE_DOWN:
                 state.controls.downHeld = false;
+                break;
+            case KEYCODE_SHIFT:
+                state.controls.fireHeld = false;
+                state.gun.splitTimer = 0;
                 break;
         }
     };

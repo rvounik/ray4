@@ -30,6 +30,11 @@ const images = [
         src: 'assets/images/800x600_pixelated.png',
         img: new Image()
     },
+    {
+        id: 'enemy-a',
+        src: 'assets/images/spritesheet_enemy_a.png',
+        img: new Image()
+    },
 ];
 
 // preload images

@@ -2,10 +2,13 @@ import { level1 } from './constants/level1.js';
 import { clearCanvas, shadeCanvas } from './utils/Canvas.js';
 import { playSound } from './utils/Sound.js';
 import { findImageById, areAllImageAssetsLoaded } from './utils/Image.js';
-import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN } from './utils/Input.js';
+import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN, KEYCODE_SHIFT } from './utils/Input.js';
 import { handleKeyPresses } from './utils/Input.js';
-import { toRadians } from './utils/Utils.js';
+import { toRadians, sortBy } from './utils/Utils.js';
 import BitmapSlice from './components/BitmapSlice.js';
+import Shell from './utils/Shell.js';
+import Enemy from './utils/Enemy.js';
+import { positionedText } from './utils/Type.js';
 
 const context = document.getElementById('canvas').getContext('2d');
 context.imageSmoothingEnabled = false;
@@ -15,12 +18,13 @@ context.msImageSmoothingEnabled = false;
 
 const state = {
     player: {
-        x: 150,
+        x: 950,
         y: 200,
         rotation: 0,
         speed: 3,
         height: 300, // vertical viewing angle
-        bop: 0
+        bop: 0,
+        energy: 100
     },
     engine: {
         width: 800,
@@ -32,21 +36,29 @@ const state = {
     gun: {
         position: { x: 560, y: 350 },
         target: { x: 560, y: 350 },
-        count: 100
+        count: 100,
+        splitTimer: 0, // timeout between shots
+        shells: [],
+        killedOffset: 0,
+        weaponPower: 10
     },
     controls: {
         upHeld: false,
         downHeld: false,
         rightHeld: false,
         leftHeld: false,
+        fireHeld: false
     },
+    enemies: [],
     assetsLoaded: false,
+    wallDepthBuffer: [],
+    scene: 'game'
 };
 
 window.addEventListener(
     "keydown",
     event => {
-        if ([KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN].includes(event.keyCode)) {
+        if ([KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN, KEYCODE_SHIFT].includes(event.keyCode)) {
             event.preventDefault();
         }
     });
@@ -136,12 +148,11 @@ const getShortestRayToWallSegment = (rayRotation) => {
 };
 
 /** renders a gun-in-hand and make it move dynamically, whilst also applying the head-bop effect */
-const drawGunHand = () => {
+const drawGun = () => {
     const interpolate = (start, end, t) => start + (end - start) * t;
     const gun = findImageById('gun-hand').img;
     const smoothing = 5;
     const threshold = 0.5;
-    context.translate(0, (Math.sin(state.player.bop) * 15));
 
     // snap to target position when close enough, then deplete the timer, then set new random coordinates and reset timer
     if (Math.abs(state.gun.position.x - state.gun.target.x) < threshold && Math.abs(state.gun.position.y - state.gun.target.y) < threshold) {
@@ -159,9 +170,185 @@ const drawGunHand = () => {
         state.gun.position.y = interpolate(state.gun.position.y, state.gun.target.y, 1 / smoothing);
     }
 
+    if (state.controls.fireHeld && state.gun.splitTimer <= 0) {
+        context.globalAlpha = 0.3;
+        clearCanvas(context, '#FAF89D');
+        context.globalAlpha = 1;
+
+        // gun flash
+        const gradient = context.createRadialGradient(680, 380, 0, 600, 400, 500);
+        gradient.addColorStop(0, "rgba(255, 255, 0, 1)");
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.arc(600, 400, 500, 0, Math.PI * 2);
+        context.fill();
+
+        state.gun.splitTimer = 25;
+        playSound('assets/sounds/gunshot.mp3');
+        const vx = Math.random() * 2 - 1; // velocity
+        const vy = -Math.random(); // (initial) upward speed
+        state.gun.shells.push(new Shell(640, 420, vx, vy));
+    }
+
+    context.save();
+
+    // rotate the gun hand depending on the gun animation countdown
+    if (state.gun.splitTimer > 0) {
+        context.translate(800,600);
+        context.rotate(toRadians(state.gun.splitTimer / 2));
+        context.translate(-800,-600);
+        state.gun.splitTimer-=1;
+    }
+
+    context.translate(0, (Math.sin(state.player.bop) * 15));
     context.drawImage(gun, state.gun.position.x, state.gun.position.y);
-    context.translate(0, -(Math.sin(state.player.bop) * 15));
+    context.restore();
 };
+
+const drawGunShells = () => {
+    state.gun.shells.forEach(shell => {
+        shell.update();
+        shell.draw(context);
+    });
+
+    // remove shells that have moved off-screen (y > 600)
+    state.gun.shells = state.gun.shells.filter(shell => shell.y <= 600);
+};
+
+const depleteEnergy = (value) => {
+    state.player.energy -= value;
+}
+
+const drawEnemies = () => {
+    const maxVisibleDistance = 600;    // Beyond this, enemy isn't drawn.
+    const shootingRange = 250;         // Enemies shoot if within this distance
+    const projectionPlaneDistance = (state.engine.width / 2) / Math.tan(toRadians(state.engine.fieldOfVision / 2));
+    const scaleModifier = 0.2;         // Magic number for overall sprite scaling.
+
+    // Sort enemies by distance to the player.
+    sortBy(state.enemies, (enemy) => {
+        const dx = enemy.x - state.player.x;
+        const dy = enemy.y - state.player.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    });
+
+    state.enemies.forEach(enemy => {
+
+        // calculate distance to enemy
+        const deltaX = enemy.x - state.player.x;
+        const deltaY = enemy.y - state.player.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const playerAngleRad = toRadians(state.player.rotation);
+
+        // compute forward (how far in front) and right (side offset) using dot and cross concepts (this is a common concept so I used chatGPT to apply)
+        const forward = deltaX * Math.cos(playerAngleRad) + deltaY * Math.sin(playerAngleRad);
+        const right = -deltaX * Math.sin(playerAngleRad) + deltaY * Math.cos(playerAngleRad);
+
+        // always update enemy movement (even if off-screen)
+        enemy.update(forward);
+
+        const frameWidth = 204;
+        const spriteScale = (projectionPlaneDistance / forward) * scaleModifier;
+        const enemyImage = findImageById(enemy.type).img;
+        const frameHeight = enemyImage.height;
+        const spriteHeight = frameHeight * spriteScale;
+        const spriteWidth = frameWidth * spriteScale;
+        const enemyAngle = Math.atan2(right, forward);
+        const screenX = (state.engine.width / 2) + Math.tan(enemyAngle) * projectionPlaneDistance - spriteWidth / 2;
+        const screenY = (state.engine.height / 2) - spriteHeight / 2;
+        const halfFOV = toRadians(state.engine.fieldOfVision / 2);
+
+        // only draw enemy if it is in front and within visible distance
+        if (forward > 0 && forward < maxVisibleDistance) {
+            if (Math.abs(enemyAngle) <= halfFOV) {
+                drawEnemySpriteWithOcclusion(
+                    enemyImage,
+                    frameWidth,
+                    frameHeight,
+                    screenX,
+                    screenY,
+                    spriteWidth,
+                    spriteHeight,
+                    forward,
+                    enemy,
+                    maxVisibleDistance
+                );
+
+                // oh and if the player is shooting, deplete energy, too
+                if (enemy.state !== 'dead' && state.gun.splitTimer > 23) {
+                    // player is shooting at enemy as its being drawn, drain energy
+                    enemy.energy-=state.gun.weaponPower;
+
+                    if (enemy.energy <= 0) {
+                        enemy.state = 'dead';
+                        playSound('assets/sounds/death-robot.mp3');
+                    }
+                }
+
+            }
+        }
+
+        if (enemy.state === 'dead') {
+            return;
+        }
+
+        // if the enemy is still alive and within range (regardless of whether it’s in front) it should shoot
+        if (distance < shootingRange) {
+            if (forward > 0) {
+                const enemyCenterColumn = Math.floor(screenX + (spriteWidth / 2));
+
+                if (
+                    enemyCenterColumn >= 0 &&
+                    enemyCenterColumn < state.engine.width &&
+                    forward < state.wallDepthBuffer[enemyCenterColumn]
+                ) {
+                    enemy.shoot(screenX, depleteEnergy); // shoot with flash
+                }
+            } else {
+                enemy.shoot(null, depleteEnergy); // shoot without flash
+            }
+        } else {
+            enemy.state = 'walk';
+        }
+    });
+};
+
+/** draws each vertical column of enemy sprite and checks if it should be positioned in front of a wall segment in the corresponding view column */
+const drawEnemySpriteWithOcclusion = (
+    enemyImage,
+    frameWidth,
+    frameHeight,
+    screenX,
+    screenY,
+    spriteWidth,
+    spriteHeight,
+    enemyDepth,
+    enemy,
+    maxVisibleDistance
+) => {
+    for (let x = 0; x < spriteWidth; x++) {
+        const screenColumn = Math.floor(screenX + x);
+        if (
+            screenColumn >= 0 &&
+            screenColumn < state.engine.width &&
+            enemyDepth < state.wallDepthBuffer[screenColumn]
+        ) {
+            // Calculate source column offset based on the current animation frame.
+            const sourceX = Math.floor((x / spriteWidth) * frameWidth) + (204 * enemy.currentFrame);
+            context.globalAlpha = 1.25 - (enemyDepth / maxVisibleDistance);
+            context.drawImage(
+                enemyImage,
+                sourceX, 0,         // Source x, y.
+                1, frameHeight,     // Source width, height (one vertical slice).
+                screenColumn, screenY + 10, // Destination x, y (with fine-tuning offset).
+                1, spriteHeight     // Destination width, height.
+            );
+            context.globalAlpha = 1;
+        }
+    }
+};
+
 
 /** renders a top-down map of the viewable area with a line representing the viewing angle */
 const drawMiniMap = () => {
@@ -224,7 +411,6 @@ const drawMiniMap = () => {
     context.moveTo(minimapCenter.x, minimapCenter.y);
     context.lineTo(endX, endY);
     context.stroke();
-
     context.restore();
 };
 
@@ -235,7 +421,7 @@ const drawFloor = () => {
     const cfg = {
         startScale: 0.5,
         scaleAmplitude,
-        translationSpeed: 3, // the higher, the SLOWER controls the movement of the texture. should be directly related to scaleAmplitude! safe: 3
+        translationSpeed: 2.92, // the higher, the SLOWER controls the movement of the texture. should be directly related to scaleAmplitude! safe: 3
         dimensions: {
             startX: 0, // start x pos of the slice
             endX: state.engine.width,
@@ -262,9 +448,8 @@ const drawFloor = () => {
             index
         );
 
-        // todo: refine this shading
         context.fillStyle = "#000000";
-        context.globalAlpha = (1 - (index/300));
+        context.globalAlpha = (1 - (index / 300));
         context.fillRect(0, 300 + index,800,1);
         context.globalAlpha = 1.0;
     }
@@ -275,7 +460,6 @@ const drawProjection = () => {
     const rotationStart = state.player.rotation - (state.engine.fieldOfVision / 2);
     const rotationIncrement = state.engine.fieldOfVision / state.engine.rayCount;
     const texture = findImageById('wall').img;
-
 
     for (let ray = 0; ray < state.engine.rayCount; ray++) {
         const rayAngle = rotationStart + (ray * rotationIncrement);
@@ -340,21 +524,89 @@ const drawProjection = () => {
             context.fillRect(ray,destY-1,1,destHeight+2);
             context.globalAlpha = 1.0;
         }
+
+        // store the computed ray lengths in state (the enemy drawing makes use of this)
+        state.wallDepthBuffer[ray] = rayLength;
     }
 };
 
+const fadeToGameOverScene = () => {
+    const gun = findImageById('gun-hand').img;
+
+    if (state.gun.killedOffset === 0) { playSound('assets/sounds/death.mp3') }
+
+    state.gun.killedOffset+=1;
+    state.player.height-=0.3;
+    context.save();
+    context.translate(800,600 + state.gun.killedOffset);
+    context.rotate(toRadians(40));
+    context.translate(-800,-600);
+    context.drawImage(gun, 560, 380);
+    context.restore();
+    context.globalAlpha = state.gun.killedOffset / 50;
+    context.fillStyle = "#000000";
+    context.fillRect(0, 0, 800, 600);
+
+    if (state.gun.killedOffset > 100) {
+        context.globalAlpha = 0;
+        state.scene = 'game-over';
+    }
+}
+
+const drawGameOver = () => {
+    context.globalAlpha += 0.001;
+    positionedText({ context, text: 'GAME OVER', y: 280, font: "120px Butcherman", color: '#dd0000' });
+}
+
 const update = () => {
-    // clearCanvas(context, '', 'outside');
     clearCanvas(context, '#000000');
     if (state.assetsLoaded) {
-        drawFloor();
-        drawProjection();
-        drawGunHand();
-        drawMiniMap();
-        handleKeyPresses(state);
+        switch(state.scene) {
+            case 'preload': {
+                break;
+            }
+            case 'intro': {
+                break;
+            }
+            case 'start': {
+                break;
+            }
+            case 'game': {
+                drawFloor();
+                drawProjection();
+
+                if (state.player.energy <= 0) { return fadeToGameOverScene() }
+
+                drawEnemies();
+                drawGun();
+                drawGunShells();
+                drawMiniMap();
+                handleKeyPresses(state);
+                break;
+            }
+            case 'game-over': {
+                drawGameOver();
+                break;
+            }
+            default:
+                break;
+        }
+
     } else if (areAllImageAssetsLoaded()) {
         state.assetsLoaded = true;
         playSound('assets/sounds/level1.mp3');
+
+        // add enemies on load
+        state.enemies.push(new Enemy(1450, 400, 'enemy-a', [
+            { endX : 1450, endY: 400 },
+            { endX : 1450, endY: 200 },
+            { endX : 250, endY: 200 },
+            { endX : 250, endY: 600 },
+        ], context, 5));
+        state.enemies.push(new Enemy(250, 200, 'enemy-a', [
+            { endX : 250, endY: 200 },
+            { endX : 250, endY: 600 },
+        ], context, 5));
     }
 };
 
