@@ -1,12 +1,12 @@
 import {playSound} from "./Sound.js";
 
 export default class Enemy {
-    constructor(x, y, type, path = [{ startX: x, endX : x, startY : y, endY: y }], context, weaponPower) {
-        this.x = x;
-        this.y = y;
-        this.speed = 1;
-        this.type = type;
-        this.path = path;
+    constructor(context, cfg) {
+        this.x = cfg.x;
+        this.y = cfg.y;
+        this.speed = cfg.speed;
+        this.type = cfg.type;
+        this.path = cfg.path;
         this.pathIndex = 0;
         this.patrolDirection = 1;
         this.frameTimer = 25;
@@ -14,7 +14,7 @@ export default class Enemy {
         this.state = 'walk';
         this.energy = 100;
         this.context = context;
-        this.weaponPower = weaponPower;
+        this.weaponPower = cfg.weaponPower;
     }
 
     shoot(screenX = null, depleteEnergy) {

@@ -1,5 +1,5 @@
 import { toRadians } from './Utils.js';
-import { level1 } from '../constants/level1.js';
+import { positionedText } from './Type.js';
 
 export const KEYCODE_LEFT = 37;
 export const KEYCODE_RIGHT = 39;
@@ -8,14 +8,14 @@ export const KEYCODE_DOWN = 40;
 export const KEYCODE_SHIFT = 16;
 
 /** check if given x,y is on a non-traversable tile in the grid array */
-const checkWallCollision = (x, y) => {
+const checkWallCollision = (x, y, grid) => {
     const gridX = Math.floor(x / 100);
     const gridY = Math.floor(y / 100);
 
     if (
         gridX < 0 || gridY < 0 ||
-        gridX >= level1[0].length || gridY >= level1.length ||
-        level1[gridY][gridX] === 1
+        gridX >= grid[0].length || gridY >= grid.length ||
+        grid[gridY][gridX] === 1
     ) {
         return true;
     }
@@ -31,7 +31,7 @@ const getNewCoordsForAngle = (x, y, rotation, length) => {
     ];
 };
 
-export const handleKeyPresses = (state) => {
+export const handleKeyPresses = (state, grid) => {
     const player = state.player;
 
     if (state.controls.upHeld || state.controls.downHeld) {
@@ -45,7 +45,7 @@ export const handleKeyPresses = (state) => {
             player.rotation,
             state.controls.upHeld ? player.speed : -player.speed
         );
-        if (!checkWallCollision(newCoords[0], newCoords[1])) {
+        if (!checkWallCollision(newCoords[0], newCoords[1], grid)) {
             player.x = newCoords[0];
             player.y = newCoords[1];
         }
@@ -69,42 +69,57 @@ export const handleKeyPresses = (state) => {
 /**
  * Check if there is a context provided matching the clicked mouse coordinates, then execute its associated action
  */
-// export const mouseDownHandler = event => {
-//     state.mouseDown = true;
-//
-//     let mouseX = (event.clientX - document.getElementById("canvas").offsetLeft);
-//     let mouseY = (event.clientY - document.getElementById("canvas").offsetTop);
-//
-//     if (mouseX < 0 || mouseX > 800 || mouseY < 0 || mouseY > 600) {
-//         return false;
-//     } else {
-//         state.mouseX = mouseX;
-//         state.mouseY = mouseY;
-//         state.clickableContexts.map(clickableContext => {
-//             if (mouseX > clickableContext.x
-//                 && mouseX < clickableContext.x + clickableContext.width
-//                 && mouseY > clickableContext.y
-//                 && mouseY < clickableContext.y + clickableContext.height
-//             ) {
-//
-//                 // store action in state so it runs as long as mouseup event is not triggered
-//                 if (clickableContext.repeat) {
-//                     state.mouseDownAction = () => { clickableContext.action(); };
-//                 }
-//
-//                 clickableContext.action();
-//             }
-//         });
-//     }
-// };
+export const mouseDownHandler = (event, state) => {
+    state.mouseDown = true;
+
+    let mouseX = (event.clientX - document.getElementById("canvas").offsetLeft);
+    let mouseY = (event.clientY - document.getElementById("canvas").offsetTop);
+
+    if (mouseX < 0 || mouseX > 800 || mouseY < 0 || mouseY > 600) {
+        return false;
+    } else {
+        state.mouseX = mouseX;
+        state.mouseY = mouseY;
+        state.clickableContexts.map(clickableContext => {
+            if (mouseX > clickableContext.x
+                && mouseX < clickableContext.x + clickableContext.width
+                && mouseY > clickableContext.y
+                && mouseY < clickableContext.y + clickableContext.height
+            ) {
+
+                // store action in state so it runs as long as mouseup event is not triggered
+                if (clickableContext.repeat) {
+                    state.mouseDownAction = () => { clickableContext.action(); };
+                }
+
+                clickableContext.action();
+            }
+        });
+    }
+}
 
 /**
  * Cancels the mousedown and removes the stored action
  */
-const mouseUpHandler = () => {
+export const mouseUpHandler = (event, state) => {
     state.mouseDown = false;
     state.mouseDownAction = null;
 };
+
+export function createButton(context, x, y, w, h, fill, color, text, font) {
+    const textWidth = context.measureText(text).width;
+
+    context.font = font;
+
+    context.translate(x, y);
+    context.fillStyle = fill;
+    context.fillRect(0,0, w, h);
+    context.translate(-x, -y);
+
+    // text
+    context.fillStyle = color;
+    context.fillText(text, x + ((w - textWidth) / 2), y + (h/2) + 7); // extra margin was needed
+}
 
 export default function createInputHandlers(state) {
     const handleKeyDown = (event) => {
@@ -152,5 +167,5 @@ export default function createInputHandlers(state) {
         }
     };
 
-    return { handleKeyDown, handleKeyUp };
+    return { handleKeyDown, handleKeyUp, createButton };
 }

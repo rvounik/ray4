@@ -1,9 +1,10 @@
-import { level1 } from './constants/level1.js';
-import { clearCanvas, shadeCanvas } from './utils/Canvas.js';
-import { playSound } from './utils/Sound.js';
+import { grid, enemies } from './constants/level1.js';
+import { clearCanvas, shadeCanvas, addClickableContext } from './utils/Canvas.js';
+import { playSound, playMusic, stopMusic } from './utils/Sound.js';
 import { findImageById, areAllImageAssetsLoaded } from './utils/Image.js';
-import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN, KEYCODE_SHIFT } from './utils/Input.js';
+import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN, KEYCODE_SHIFT, createButton } from './utils/Input.js';
 import { handleKeyPresses } from './utils/Input.js';
+import { mouseDownHandler, mouseUpHandler } from './utils/Input.js';
 import { toRadians, sortBy } from './utils/Utils.js';
 import BitmapSlice from './components/BitmapSlice.js';
 import Shell from './utils/Shell.js';
@@ -49,10 +50,17 @@ const state = {
         leftHeld: false,
         fireHeld: false
     },
+    scenes: {
+        currentScene: 'preload',
+        start: {
+            signalOffset: 0
+        }
+    },
     enemies: [],
     assetsLoaded: false,
     wallDepthBuffer: [],
-    scene: 'game'
+    clickableContexts: [],
+    currentTrack: null
 };
 
 window.addEventListener(
@@ -65,8 +73,19 @@ window.addEventListener(
 
 const { handleKeyDown, handleKeyUp } = createInputHandlers(state);
 
+// register global event listeners
 document.addEventListener("keydown", handleKeyDown);
 document.addEventListener("keyup", handleKeyUp);
+window.addEventListener('mousedown', event => mouseDownHandler(event, state) );
+window.addEventListener('mouseup', event => mouseUpHandler(event, state) )
+
+// populate array of enemies
+enemies.forEach(enemy => {
+    state.enemies.push(new Enemy(
+        context,
+        enemy
+    ));
+})
 
 /** removes fish-eye (edge distortions) by adjusting ray length based on its angle to the projection (basic trigonometry) */
 const normalizeRayLength = (rayLength, rayIndex) => {
@@ -132,13 +151,13 @@ const getShortestRayToWallSegment = (rayRotation) => {
         let gridY = Math.floor(rayY / state.engine.resolution);
 
         // calculated grid cell is out of bounds, break the loop
-        if (gridX < 0 || gridX >= level1[0].length ||
-            gridY < 0 || gridY >= level1.length) {
+        if (gridX < 0 || gridX >= grid[0].length ||
+            gridY < 0 || gridY >= grid.length) {
             return { distance, verticalHit: null };
         }
 
         // calculated grid cell is a wall unit, break the loop
-        if (level1[gridY][gridX] === 1) {
+        if (grid[gridY][gridX] === 1) {
             hit = true;
             break;
         }
@@ -380,8 +399,8 @@ const drawMiniMap = () => {
     context.beginPath();
     for (let row = playerGridY - gridDisplayRadius; row <= playerGridY + gridDisplayRadius; row++) {
         for (let col = playerGridX - gridDisplayRadius; col <= playerGridX + gridDisplayRadius; col++) {
-            if (row >= 0 && row < level1.length && col >= 0 && col < level1[0].length) {
-                if (level1[row][col] === 1) {
+            if (row >= 0 && row < grid.length && col >= 0 && col < grid[0].length) {
+                if (grid[row][col] === 1) {
                     // get world coordinates of the cell's top-left corner.
                     const worldX = col * state.engine.resolution;
                     const worldY = row * state.engine.resolution;
@@ -520,7 +539,7 @@ const drawProjection = () => {
             // shadeCanvas(context, rayLength / 2, {x: ray, y: destY, w: 1, h: destHeight})
 
             context.fillStyle = "#000000";
-            context.globalAlpha = rayLength / 500; // the further, the darker. so, the higher rayLength, the darker.
+            context.globalAlpha = rayLength / 800; // the further, the darker. so, the higher rayLength, the darker.
             context.fillRect(ray,destY-1,1,destHeight+2);
             context.globalAlpha = 1.0;
         }
@@ -549,8 +568,49 @@ const fadeToGameOverScene = () => {
 
     if (state.gun.killedOffset > 100) {
         context.globalAlpha = 0;
-        state.scene = 'game-over';
+        state.scenes.currentScene = 'game-over';
     }
+}
+
+const drawPreload = () => {
+    positionedText({ context, text: 'LOADING', y: 280, font: "24px Arial", color: '#ffffff' });
+}
+
+const drawIntro = () => {
+    positionedText({ context, text: 'Scientists discover a strange audio signal.', x: 25, y: 25, font: "24px Arial", color: '#ffffff' });
+    state.scenes.currentScene='start';
+}
+
+const drawTitle = () => {
+    const title = findImageById('title').img;
+    const signal = findImageById('signal').img;
+
+    state.scenes.start.signalOffset--;
+    if (state.scenes.start.signalOffset < -800) {
+        state.scenes.start.signalOffset = 0;
+    }
+
+    context.drawImage(title, 113, 80);
+    context.drawImage(signal, state.scenes.start.signalOffset-800, 200);
+    context.drawImage(signal, state.scenes.start.signalOffset, 200);
+    context.drawImage(signal, state.scenes.start.signalOffset+800, 200);
+
+    context.save();
+    const startButtonColor = "#009900";
+    context.strokeStyle=startButtonColor;
+    context.lineWidth = 2;
+    context.strokeRect(350, 500, 100, 50);
+    context.fillStyle = startButtonColor;
+    context.font = "22px Arial";
+    context.fillText("START", 365, 534);
+    context.restore();
+
+    addClickableContext(state.clickableContexts, 'startGame', 300, 500, 200, 60, () => {
+        state.scenes.currentScene='game';
+        stopMusic(state);
+        playMusic('assets/sounds/level1.mp3', state);
+        state.clickableContexts = [];
+    });
 }
 
 const drawGameOver = () => {
@@ -561,14 +621,18 @@ const drawGameOver = () => {
 const update = () => {
     clearCanvas(context, '#000000');
     if (state.assetsLoaded) {
-        switch(state.scene) {
+        switch(state.scenes.currentScene) {
             case 'preload': {
-                break;
-            }
-            case 'intro': {
+                drawPreload();
                 break;
             }
             case 'start': {
+                drawTitle();
+
+                break;
+            }
+            case 'intro': {
+                drawIntro();
                 break;
             }
             case 'game': {
@@ -581,7 +645,7 @@ const update = () => {
                 drawGun();
                 drawGunShells();
                 drawMiniMap();
-                handleKeyPresses(state);
+                handleKeyPresses(state, grid);
                 break;
             }
             case 'game-over': {
@@ -594,19 +658,8 @@ const update = () => {
 
     } else if (areAllImageAssetsLoaded()) {
         state.assetsLoaded = true;
-        playSound('assets/sounds/level1.mp3');
-
-        // add enemies on load
-        state.enemies.push(new Enemy(1450, 400, 'enemy-a', [
-            { endX : 1450, endY: 400 },
-            { endX : 1450, endY: 200 },
-            { endX : 250, endY: 200 },
-            { endX : 250, endY: 600 },
-        ], context, 5));
-        state.enemies.push(new Enemy(250, 200, 'enemy-a', [
-            { endX : 250, endY: 200 },
-            { endX : 250, endY: 600 },
-        ], context, 5));
+        state.scenes.currentScene = 'start';
+        playMusic('assets/sounds/start.mp3', state);
     }
 };
 

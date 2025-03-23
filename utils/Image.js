@@ -35,6 +35,16 @@ const images = [
         src: 'assets/images/spritesheet_enemy_a.png',
         img: new Image()
     },
+    {
+        id: 'title',
+        src: 'assets/images/title.png',
+        img: new Image()
+    },
+    {
+        id: 'signal',
+        src: 'assets/images/signal.png',
+        img: new Image()
+    },
 ];
 
 // preload images

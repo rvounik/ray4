@@ -43,3 +43,12 @@ export const shadeCanvas = (context, alpha, {x,y,w,h}) => {
     context.fillRect(x,y,w,h);
     context.globalAlpha = 1.0;
 }
+
+/**
+ * Adds a context to the context collection with provided details if it does not exist yet
+ */
+export const addClickableContext = (clickableContexts, id, x, y, width, height, action, repeat = false) => {
+    if (clickableContexts.filter(clickableContext => clickableContext.id === id).length === 0) {
+        clickableContexts.push({ id, x, y, width, height, action, repeat });
+    }
+}
