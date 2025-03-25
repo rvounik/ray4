@@ -1,5 +1,5 @@
-import { grid, enemies } from './constants/level1.js';
-import { clearCanvas, shadeCanvas, addClickableContext } from './utils/Canvas.js';
+import { grid, enemies, data } from './constants/level1.js';
+import { clearCanvas, addClickableContext } from './utils/Canvas.js';
 import { playSound, playMusic, stopMusic } from './utils/Sound.js';
 import { findImageById, areAllImageAssetsLoaded } from './utils/Image.js';
 import createInputHandlers, { KEYCODE_LEFT, KEYCODE_RIGHT, KEYCODE_UP, KEYCODE_DOWN, KEYCODE_SHIFT, createButton } from './utils/Input.js';
@@ -8,6 +8,7 @@ import { mouseDownHandler, mouseUpHandler } from './utils/Input.js';
 import { toRadians, sortBy } from './utils/Utils.js';
 import BitmapSlice from './components/BitmapSlice.js';
 import Shell from './utils/Shell.js';
+import Particle from './utils/Particle.js';
 import Enemy from './utils/Enemy.js';
 import { positionedText } from './utils/Type.js';
 
@@ -19,8 +20,8 @@ context.msImageSmoothingEnabled = false;
 
 const state = {
     player: {
-        x: 950,
-        y: 200,
+        x: 150,
+        y: 150,
         rotation: 0,
         speed: 3,
         height: 300, // vertical viewing angle
@@ -52,8 +53,15 @@ const state = {
     },
     scenes: {
         currentScene: 'preload',
-        start: {
-            signalOffset: 0
+        title: {
+            signalOffset: 0,
+        },
+        prelude: {
+            timeOut: 0
+        },
+        game: {
+            level: 1,
+            weatherParticles: []
         }
     },
     enemies: [],
@@ -237,13 +245,15 @@ const drawGunShells = () => {
 
 const depleteEnergy = (value) => {
     state.player.energy -= value;
+
+    if (state.player.energy <= 0) { return fadeToGameOverScene() }
 }
 
 const drawEnemies = () => {
-    const maxVisibleDistance = 600;    // Beyond this, enemy isn't drawn.
-    const shootingRange = 250;         // Enemies shoot if within this distance
+    const maxVisibleDistance = 600;
+    const shootingRange = 250;
     const projectionPlaneDistance = (state.engine.width / 2) / Math.tan(toRadians(state.engine.fieldOfVision / 2));
-    const scaleModifier = 0.2;         // Magic number for overall sprite scaling.
+    const scaleModifier = 0.2; // magic number for overall sprite scaling
 
     // Sort enemies by distance to the player.
     sortBy(state.enemies, (enemy) => {
@@ -368,7 +378,6 @@ const drawEnemySpriteWithOcclusion = (
     }
 };
 
-
 /** renders a top-down map of the viewable area with a line representing the viewing angle */
 const drawMiniMap = () => {
     const minimapSize = 150;
@@ -381,8 +390,7 @@ const drawMiniMap = () => {
 
     context.save();
 
-    // center
-    context.translate(state.engine.width / 2 - (minimapSize / 2), 10);
+    context.translate(25, 425);
 
     // clip
     context.beginPath();
@@ -394,7 +402,7 @@ const drawMiniMap = () => {
     context.globalAlpha = 0.25;
     context.fillRect(0, 0, minimapSize, minimapSize);
 
-    // walls as a unified shape / path
+    // walls as a unified shape / path (prevents antialias artifacts)
     context.fillStyle = '#4FD34B';
     context.beginPath();
     for (let row = playerGridY - gridDisplayRadius; row <= playerGridY + gridDisplayRadius; row++) {
@@ -458,7 +466,7 @@ const drawFloor = () => {
     for (let index = 0; index < sliceCount; index++ ) {
         let slice = new BitmapSlice(
             context,
-            findImageById('floor-1500-a')
+            findImageById(data.textures.floor)
         );
 
         slice.draw(
@@ -467,18 +475,20 @@ const drawFloor = () => {
             index
         );
 
-        context.fillStyle = "#000000";
-        context.globalAlpha = (1 - (index / 300));
-        context.fillRect(0, 300 + index,800,1);
-        context.globalAlpha = 1.0;
+        if (data.shadeFloor) {
+            context.fillStyle = data.fog.color;
+            context.globalAlpha = (1 - (index / 300));
+            context.fillRect(0, 300 + index, 800, 1);
+            context.globalAlpha = 1.0;
+        }
     }
 };
 
-/** draw a pseudo-3d projection consisting of 1px-wide segments, based on position and rotation of the player, mapped to the grid in mapData */
-const drawProjection = () => {
+/** draw a pseudo-3d projection consisting of 1px-wide wall segments, based on position and rotation of the player, mapped to the grid in mapData */
+const drawWalls = () => {
     const rotationStart = state.player.rotation - (state.engine.fieldOfVision / 2);
     const rotationIncrement = state.engine.fieldOfVision / state.engine.rayCount;
-    const texture = findImageById('wall').img;
+    const texture = findImageById(data.textures.wall).img;
 
     for (let ray = 0; ray < state.engine.rayCount; ray++) {
         const rayAngle = rotationStart + (ray * rotationIncrement);
@@ -535,14 +545,21 @@ const drawProjection = () => {
             1, destHeight       // destination width and height
         );
 
-        if (hitResult.verticalHit !== null) {
-            // shadeCanvas(context, rayLength / 2, {x: ray, y: destY, w: 1, h: destHeight})
+        // approach 1: fog using overlay picture
+        // const transparency_mask = findImageById('transparency_mask').img;
+        // context.drawImage(
+        //     transparency_mask,            // source image
+        //     ray, 0,     // source x and y (starting point in texture)
+        //     1, 600,       // source width and height (1px slice of texture)
+        // );
 
-            context.fillStyle = "#000000";
-            context.globalAlpha = rayLength / 800; // the further, the darker. so, the higher rayLength, the darker.
-            context.fillRect(ray,destY-1,1,destHeight+2);
-            context.globalAlpha = 1.0;
-        }
+        // approach 2: fog using a transparent box
+        // if (hitResult.verticalHit !== null && data.fog?.color) {
+        //     context.fillStyle = data.fog.color;
+        //     context.globalAlpha = rayLength / 800; // the further, the darker. so, the higher rayLength, the darker.
+        //     context.fillRect(ray,destY-1,1,destHeight+2);
+        //     context.globalAlpha = 1.0;
+        // }
 
         // store the computed ray lengths in state (the enemy drawing makes use of this)
         state.wallDepthBuffer[ray] = rayLength;
@@ -552,7 +569,10 @@ const drawProjection = () => {
 const fadeToGameOverScene = () => {
     const gun = findImageById('gun-hand').img;
 
-    if (state.gun.killedOffset === 0) { playSound('assets/sounds/death.mp3') }
+    if (state.gun.killedOffset === 0) {
+        stopMusic(state); // stop any music
+        playSound('assets/sounds/death.mp3');
+    }
 
     state.gun.killedOffset+=1;
     state.player.height-=0.3;
@@ -569,6 +589,7 @@ const fadeToGameOverScene = () => {
     if (state.gun.killedOffset > 100) {
         context.globalAlpha = 0;
         state.scenes.currentScene = 'game-over';
+        // todo: playSound('assets/sounds/gameover.mp3'); ? maybe on a setTimeout?
     }
 }
 
@@ -577,23 +598,41 @@ const drawPreload = () => {
 }
 
 const drawIntro = () => {
+    context.save();
     positionedText({ context, text: 'Scientists discover a strange audio signal.', x: 25, y: 25, font: "24px Arial", color: '#ffffff' });
-    state.scenes.currentScene='start';
+    const startButtonColor = "#009900";
+    context.strokeStyle=startButtonColor;
+    context.lineWidth = 2;
+    context.strokeRect(670, 500, 80, 50);
+    context.fillStyle = startButtonColor;
+    context.font = "22px Arial";
+    context.fillText("SKIP", 685, 534);
+    context.restore();
+
+    addClickableContext(state.clickableContexts, 'toTitle', 670, 500, 80, 50, () => {
+        state.scenes.currentScene='title';
+        stopMusic(state);
+        playMusic('assets/sounds/start.mp3', state);
+        state.clickableContexts = [];
+    });
 }
 
 const drawTitle = () => {
     const title = findImageById('title').img;
     const signal = findImageById('signal').img;
 
-    state.scenes.start.signalOffset--;
-    if (state.scenes.start.signalOffset < -800) {
-        state.scenes.start.signalOffset = 0;
+    state.scenes.title.signalOffset--;
+    if (state.scenes.title.signalOffset < -800) {
+        state.scenes.title.signalOffset = 0;
     }
 
     context.drawImage(title, 113, 80);
-    context.drawImage(signal, state.scenes.start.signalOffset-800, 200);
-    context.drawImage(signal, state.scenes.start.signalOffset, 200);
-    context.drawImage(signal, state.scenes.start.signalOffset+800, 200);
+
+    context.globalAlpha = Math.random()/5 + 0.8;
+    context.drawImage(signal, state.scenes.title.signalOffset-800, 200);
+    context.drawImage(signal, state.scenes.title.signalOffset, 200);
+    context.drawImage(signal, state.scenes.title.signalOffset+800, 200);
+    context.globalAlpha = 1;
 
     context.save();
     const startButtonColor = "#009900";
@@ -605,45 +644,126 @@ const drawTitle = () => {
     context.fillText("START", 365, 534);
     context.restore();
 
-    addClickableContext(state.clickableContexts, 'startGame', 300, 500, 200, 60, () => {
-        state.scenes.currentScene='game';
+    addClickableContext(state.clickableContexts, 'toGame', 300, 500, 200, 60, () => {
+        state.scenes.currentScene='prelude';
+
+        // move these to setUpLevel?
         stopMusic(state);
         playMusic('assets/sounds/level1.mp3', state);
         state.clickableContexts = [];
     });
 }
 
+const drawPrelude = () => {
+    state.scenes.prelude.timeOut += 10;
+
+    context.save();
+    context.globalAlpha = state.scenes.prelude.timeOut <= 100 ? state.scenes.prelude.timeOut / 100 : (200 - state.scenes.prelude.timeOut) / 100;
+
+    context.font = "22px Arial";
+    context.fillStyle = '#ffffff';
+    context.fillText("August 2037", 340, 250);
+
+    context.font = "18px Arial";
+    context.fillStyle = '#aaaaaa';
+    context.fillText("Nuuk, Greenland", 340, 280);
+
+    context.restore();
+
+    if (state.scenes.prelude.timeOut > 200) {
+        setUpLevel();
+        state.scenes.currentScene = 'game';
+    }
+};
+
 const drawGameOver = () => {
     context.globalAlpha += 0.001;
     positionedText({ context, text: 'GAME OVER', y: 280, font: "120px Butcherman", color: '#dd0000' });
 }
 
+// run once
+const setUpLevel = () => {
+    state.scenes.prelude.timeOut = 0;
+    state.player.x = data.player.x;
+    state.player.y = data.player.y;
+    state.player.rotation = data.player.rotation;
+
+    // todo: grab the weather type from data
+    for (let i = 0; i < 100; i++) {
+        state.scenes.game.weatherParticles.push(new Particle(
+            Math.random() * 3200, // worldX in degrees
+            0 - (Math.random() * 600),
+            1 + (2 * Math.random())
+        ));
+    }
+}
+
+/** renders snow, rain etc **/
+const drawWeatherParticles = () => {
+    state.scenes.game.weatherParticles.forEach(particle => {
+        particle.update(state);
+        particle.draw(context);
+
+        // if particle reaches vertical screen limit, reset to top with random offset
+        if (particle.y > 600) {
+            particle.y = -Math.random() * 50;
+            particle.x = Math.random() * 3200;
+        }
+    });
+};
+
+/** handles per-level weather effects **/
+const drawEnvironmentalEffects  = () => {
+    switch (state.scenes.game.level) {
+        case 1:
+            drawWeatherParticles();
+            break;
+        default:
+            break;
+    }
+}
+
+const drawSky = () => {
+    const sky = findImageById(data.sky.imageId).img;
+    const skyWidth = sky.width;
+    const skyOffsetX = Math.floor(-(state.player.rotation / 360) * skyWidth);
+
+    context.drawImage(sky, skyOffsetX % skyWidth, 0);
+    context.drawImage(sky, (skyOffsetX % skyWidth) + skyWidth, 0);
+}
+
 const update = () => {
-    clearCanvas(context, '#000000');
     if (state.assetsLoaded) {
         switch(state.scenes.currentScene) {
             case 'preload': {
+                clearCanvas(context, '#000000');
                 drawPreload();
                 break;
             }
-            case 'start': {
-                drawTitle();
-
-                break;
-            }
             case 'intro': {
+                clearCanvas(context, '#000000');
                 drawIntro();
                 break;
             }
+            case 'title': {
+                clearCanvas(context, '#000000');
+                drawTitle();
+                break;
+            }
+            case 'prelude': {
+                clearCanvas(context, '#000000');
+                drawPrelude();
+                return;
+            }
             case 'game': {
+                clearCanvas(context, data.fog?.color);
+                drawSky();
                 drawFloor();
-                drawProjection();
-
-                if (state.player.energy <= 0) { return fadeToGameOverScene() }
-
+                drawWalls();
                 drawEnemies();
                 drawGun();
                 drawGunShells();
+                drawEnvironmentalEffects();
                 drawMiniMap();
                 handleKeyPresses(state, grid);
                 break;
@@ -658,8 +778,8 @@ const update = () => {
 
     } else if (areAllImageAssetsLoaded()) {
         state.assetsLoaded = true;
-        state.scenes.currentScene = 'start';
-        playMusic('assets/sounds/start.mp3', state);
+        state.scenes.currentScene = 'prelude'; // 'intro';
+
     }
 };
 

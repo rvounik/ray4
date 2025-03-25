@@ -45,50 +45,32 @@ const images = [
         src: 'assets/images/signal.png',
         img: new Image()
     },
+    {
+        id: 'wall-snow',
+        src: 'assets/images/wall-snow.png',
+        img: new Image()
+    },
+    {
+        id: 'floor-snow',
+        src: 'assets/images/floor-snow.jpg',
+        img: new Image()
+    },
+    {
+        id: 'night-sky',
+        src: 'assets/images/sky-night.jpg',
+        img: new Image()
+    },
+    {
+        id: 'transparency_mask',
+        src: 'assets/images/transparency_mask.png',
+        img: new Image()
+    },
 ];
 
 // preload images
 images.forEach(image => {
     image.img.src = image.src;
 });
-
-//
-// const loadAndFixImage = (src, onLoad) => {
-//     const img = new Image();
-//     img.src = src;
-//     img.onload = () => {
-//         // Create an offscreen canvas with the same dimensions as the image
-//         const offscreenCanvas = document.createElement('canvas');
-//         offscreenCanvas.width = img.width;
-//         offscreenCanvas.height = img.height;
-//         const ctx = offscreenCanvas.getContext('2d');
-//
-//         // For example, to flip vertically:
-//         ctx.translate(0, img.height);
-//         ctx.scale(1, -1);
-//
-//         // Or, to rotate by 180 degrees (which is equivalent to vertical + horizontal flip)
-//         // ctx.translate(img.width, img.height);
-//         // ctx.rotate(Math.PI);
-//
-//         // Draw the image onto the offscreen canvas
-//         ctx.drawImage(img, 0, 0);
-//
-//         // Now call the callback with the offscreen canvas as the "fixed" image
-//         onLoad(offscreenCanvas);
-//     };
-// }
-
-// preload images
-// images.forEach(image => {
-//     if (image.type && image.type === 'floor') {
-//         // image.img.src = image.src;
-//
-//         // loadAndFixImage(image.src, (fixedImage) => {
-//         //     image.img = fixedImage; // replace the Image with the canvas
-//         // });
-//     }
-// });
 
 export const findImageById = id => images.find(image => image.id === id);
 
