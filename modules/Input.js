@@ -1,5 +1,4 @@
 import { toRadians } from './Utils.js';
-import { positionedText } from './Type.js';
 
 export const KEYCODE_LEFT = 37;
 export const KEYCODE_RIGHT = 39;
@@ -15,7 +14,7 @@ const checkWallCollision = (x, y, grid) => {
     if (
         gridX < 0 || gridY < 0 ||
         gridX >= grid[0].length || gridY >= grid.length ||
-        grid[gridY][gridX] === 1
+        grid[gridY][gridX] > 0
     ) {
         return true;
     }
@@ -162,7 +161,7 @@ export default function createInputHandlers(state) {
                 break;
             case KEYCODE_SHIFT:
                 state.controls.fireHeld = false;
-                state.gun.splitTimer = 0;
+                state.hand.splitTimer = 0;
                 break;
         }
     };
