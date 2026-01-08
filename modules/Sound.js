@@ -30,7 +30,7 @@ export const playMusic = (sound, state) => {
 };
 
 
-// it can only stop music (started with playMusic)
+// it can only stop music that was started with playMusic
 export const stopMusic = state => {
     if (state?.currentTrack) {
         state.currentTrack.pause();

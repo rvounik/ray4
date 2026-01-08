@@ -117,7 +117,7 @@ export function createButton(context, x, y, w, h, fill, color, text, font) {
 
     // text
     context.fillStyle = color;
-    context.fillText(text, x + ((w - textWidth) / 2), y + (h/2) + 7); // extra margin was needed
+    context.fillText(text, x + ((w - textWidth) / 2), y + (h / 2) + 7); // extra margin was needed
 }
 
 export default function createInputHandlers(state) {

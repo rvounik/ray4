@@ -61,16 +61,16 @@ export const levels = {
                 imageId: 'night-sky',
                 width: 3200,
             },
-            // player: {
-            //     x: 112,
-            //     y: 2020,
-            //     rotation: 170
-            // },
             player: {
-                x: 962,
-                y: 4220,
+                x: 112,
+                y: 2020,
                 rotation: 170
             },
+            // player: {
+            //     x: 962,
+            //     y: 4220,
+            //     rotation: 170
+            // },
             music: 'level1'
         }
     },
@@ -161,7 +161,7 @@ export const levels = {
             },
             {
                 x: 200,
-                y: 200,
+                y: 600,
                 type: 'enemy-a',
                 weaponPower: 5,
                 speed: 1,

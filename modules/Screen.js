@@ -10,8 +10,35 @@ export const preload = (context) => {
 }
 
 export const intro = (context, state) => {
+    state.scenes.intro.timeOut += 0.01;
+    const intro_a = findImageById('intro-a').img;
+    const intro_b = findImageById('intro-b').img;
+    const intro_c = findImageById('intro-c').img;
+
     context.save();
-    positionedText({ context, text: 'Scientists discover a strange audio signal.', x: 25, y: 25, font: "24px Arial", color: '#ffffff' });
+
+    if (state.scenes.intro.timeOut < 1) {
+        context.globalAlpha = state.scenes.intro.timeOut;
+        context.drawImage(intro_a, 0, 600 - (((state.scenes.intro.timeOut) * 600)));
+    } else if (state.scenes.intro.timeOut < 5) {
+        context.globalAlpha = 5 - state.scenes.intro.timeOut;
+        context.drawImage(intro_a, 0, 0);
+    } else if (state.scenes.intro.timeOut < 6) {
+        context.globalAlpha = state.scenes.intro.timeOut - 5;
+        context.drawImage(intro_b, 0, 600 - (((state.scenes.intro.timeOut - 5) * 600)));
+    } else if (state.scenes.intro.timeOut < 11) {
+        context.globalAlpha = 1 - (state.scenes.intro.timeOut - 10);
+        context.drawImage(intro_b, 0, 0);
+    } else if (state.scenes.intro.timeOut < 12) {
+        context.globalAlpha = state.scenes.intro.timeOut - 11;
+        context.drawImage(intro_c, 0, 600 - (((state.scenes.intro.timeOut - 11) * 600)));
+    } else if (state.scenes.intro.timeOut < 17) {
+        context.globalAlpha = 1 - (state.scenes.intro.timeOut - 16);
+        context.drawImage(intro_c, 0, 0);
+    }
+
+    context.restore();
+
     const startButtonColor = "#009900";
     context.strokeStyle=startButtonColor;
     context.lineWidth = 2;
@@ -23,8 +50,6 @@ export const intro = (context, state) => {
 
     addClickableContext(state.clickableContexts, 'toTitle', 670, 500, 80, 50, () => {
         state.scenes.currentScene = Scenes.TITLE;
-        stopMusic(state);
-        playMusic('assets/sounds/start.mp3', state);
         state.clickableContexts = [];
     });
 }
@@ -56,34 +81,41 @@ export const title = (context, state) => {
     context.fillText("START", 365, 534);
     context.restore();
 
-    addClickableContext(state.clickableContexts, 'toGame', 300, 500, 200, 60, () => {
-        state.scenes.currentScene = Scenes.PRELUDE;
+    addClickableContext(state.clickableContexts, 'toPrelude', 300, 500, 200, 60, () => {
+        console.log('to prelude')
         state.clickableContexts = [];
+        state.scenes.currentScene = Scenes.PRELUDE;
     });
 }
 
-export const prelude = (context, state, callback) => {
-    state.scenes.prelude.timeOut += 10;
+export const prelude = (context, state, toGame) => {
+    state.scenes.prelude.timeOut += 0.35;
 
     context.save();
-    context.globalAlpha = state.scenes.prelude.timeOut <= 100 ? state.scenes.prelude.timeOut / 100 : (200 - state.scenes.prelude.timeOut) / 100;
+    context.globalAlpha = state.scenes.prelude.timeOut <= 100 ? state.scenes.prelude.timeOut / 100 : (201 - state.scenes.prelude.timeOut) / 100;
 
-    context.font = "22px Arial";
     context.fillStyle = '#ffffff';
-    context.fillText("August 2037", 340, 250);
-
     context.font = "18px Arial";
+    context.fillText("Qeqertaq Avannarleq, Greenland", 140, 180);
     context.fillStyle = '#aaaaaa';
-    context.fillText("Nuuk, Greenland", 340, 280);
+    context.fillText("As the helicopter fades into the distance, you grab your tracking", 140, 220);
+    context.fillText("device and turn around.The mysterious signal calls you.", 140, 260);
+
+    const next = findImageById('arrow_next').img;
+    context.drawImage(next, 730, 530);
+
+    if (!state.clickableContexts.length) {
+        addClickableContext(state.clickableContexts, 'toGame', 0, 0, 800, 600, () => {
+            toGame();
+        });
+    }
 
     context.restore();
 
     if (state.scenes.prelude.timeOut > 200) {
-        callback();
-        state.scenes.currentScene = 'level';
+        toGame()
     }
 };
-
 
 export const dead = (context, state) => {
     const gun = findImageById('hand-gun').img;

@@ -1,5 +1,10 @@
 const images = [
     {
+        id: 'arrow_next',
+        src: 'assets/images/arrow-next.png',
+        img: new Image()
+    },
+    {
         id: 'hand-gun',
         src: 'assets/images/hand-gun.png',
         img: new Image()
@@ -17,6 +22,16 @@ const images = [
     {
         id: 'title',
         src: 'assets/images/title.png',
+        img: new Image()
+    },
+    {
+        id: 'signal_icon',
+        src: 'assets/images/signal_icon.png',
+        img: new Image()
+    },
+    {
+        id: 'tracker_bg',
+        src: 'assets/images/tracker-bg.png',
         img: new Image()
     },
     {
@@ -102,6 +117,21 @@ const images = [
     {
         id: 'sky-cave',
         src: 'assets/images/sky-cave.jpg',
+        img: new Image()
+    },
+    {
+        id: 'intro-a',
+        src: 'assets/images/intro-a.png',
+        img: new Image()
+    },
+    {
+        id: 'intro-b',
+        src: 'assets/images/intro-b.png',
+        img: new Image()
+    },
+    {
+        id: 'intro-c',
+        src: 'assets/images/intro-c.png',
         img: new Image()
     },
 ];

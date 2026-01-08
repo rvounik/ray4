@@ -1,6 +1,3 @@
-
-
-
 /** renders a top-down map of the viewable area with a line representing the viewing angle */
 export const drawMiniMap = (context, state, grid) => {
     const minimapSize = 150;

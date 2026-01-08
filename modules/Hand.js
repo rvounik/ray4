@@ -18,7 +18,6 @@ export const drawHand = (state, context) => {
 
             break;
 
-
         case 2:
             utility = findImageById('hand-gun').img;
 
@@ -43,12 +42,10 @@ export const drawHand = (state, context) => {
                 state.hand.shells.push(new Shell(640, 420, vx, vy));
             }
 
-
             break;
         default:
             break;
     }
-
 
     // snap to target position when close enough, then deplete the timer, then set new random coordinates and reset timer
     if (Math.abs(state.hand.position.x - state.hand.target.x) < threshold && Math.abs(state.hand.position.y - state.hand.target.y) < threshold) {
@@ -92,59 +89,58 @@ export const drawHand = (state, context) => {
 };
 
 export const drawWaypointArrow = (context, state, exitPos) => {
-    // Convert player's rotation (assumed in degrees) to radians
     const playerRotationRad = toRadians(state.player.rotation);
-
-    // Calculate the vector from player to exit
     const dx = exitPos.x - state.player.x;
     const dy = exitPos.y - state.player.y;
-    // Global angle from the player to the exit in radians
     const angleToExit = Math.atan2(dy, dx);
-
-    const distance = Math.sqrt(dx * dx + dy * dy) / 50;
-
-    // Compute the relative angle that the arrow needs to point
-    let relativeAngle = angleToExit - playerRotationRad;
-
-    // Optional: if your arrow is drawn with its tip pointing up (i.e. along negative Y),
-    // you may need to subtract PI/2 to align it correctly.
-    // relativeAngle -= Math.PI / 2;
-
-    // Normalize the angle between -PI and PI
-    while (relativeAngle < -Math.PI) relativeAngle += 2 * Math.PI;
-    while (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
-
-    // Draw the smartphone background
+    const distance = Math.sqrt(dx * dx + dy * dy) / 25;
     const phoneX = state.hand.position.x + 42;
     const phoneY = state.hand.position.y + 5;
     const phoneWidth = 65;
     const phoneHeight = 150;
+    const gps = findImageById('tracker_bg').img;
+
+    let relativeAngle = angleToExit - playerRotationRad;
+
+    while (relativeAngle < -Math.PI) relativeAngle += 2 * Math.PI;
+    while (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
+
+    // background
     context.save();
     context.fillStyle = "#ffffff";
     context.globalAlpha = 1;
     context.fillRect(phoneX, phoneY, phoneWidth, phoneHeight);
+
+    context.drawImage(gps, state.hand.position.x + 43, state.hand.position.y + 7, 65, 146);
+
+    context.globalAlpha = 0.5;
+    if ((state.scenes.game.counter % 100) < 95) {
+        context.font = "12px Arial";
+        context.fillStyle = '#bb0000';
+        context.fillText('tracking', phoneX + 12, phoneY + 35);
+    }
+
     context.restore();
 
-    // Draw the arrow on the phone screen
+    // arrow
     const centerX = phoneX + phoneWidth / 2;
     const centerY = phoneY + phoneHeight / 2;
+
     context.save();
     context.translate(centerX, centerY);
     context.rotate(relativeAngle); // Now using the corrected angle
-
-    // Draw a simple arrow: tip pointing upward
-    context.fillStyle = "#ff0000"; // arrow color
+    context.fillStyle = "#bb0000";
     context.beginPath();
-    context.moveTo(0, -20);    // arrow tip
-    context.lineTo(-10, 10);   // bottom left
-    context.lineTo(10, 10);    // bottom right
+    context.moveTo(0, -20);
+    context.lineTo(-10, 10);
+    context.lineTo(10, 10);
     context.closePath();
     context.fill();
     context.rotate(-relativeAngle);
 
     context.font = "12px Arial";
     context.fillStyle = '#000000';
-    context.fillText(distance.toFixed(0), -10, 50);
+    context.fillText(`${distance.toFixed(0)}m`, -10, 50);
 
     context.restore();
 

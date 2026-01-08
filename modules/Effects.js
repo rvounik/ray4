@@ -13,6 +13,7 @@ export const weatherParticles = (context, state) => {
         }
     });
 };
+
 export const helicopter = (context, state, data) => {
     const helicopterWorldX = 2000;
     const helicopterWorldY = 200;
@@ -37,7 +38,6 @@ export const helicopter = (context, state, data) => {
 
         const gradient = context.createRadialGradient(lightXOffset, 0, 0, lightXOffset, 0, scaledRadius);
         gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
-        // gradient.addColorStop(0.7, "rgba(255, 0, 0, 1)");
         gradient.addColorStop(1, "rgba(255, 0, 0, 0)");
 
         context.fillStyle = gradient;

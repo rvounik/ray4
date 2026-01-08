@@ -13,7 +13,7 @@ import { drawWater } from './modules/Water.js';
 import { weatherParticles, helicopter } from './modules/Effects.js';
 import { mouseDownHandler, mouseUpHandler } from './modules/Input.js';
 import { preload, intro, title, prelude, restart, dead } from './modules/Screen.js';
-import {playMusic, playSound, stopMusic} from "./modules/Sound.js";
+import { playMusic, playSound, stopMusic } from "./modules/Sound.js";
 
 // import classes
 import Particle from './modules/Particle.js';
@@ -38,7 +38,7 @@ const state = {
     engine: {
         width: 800,
         height: 600,
-        rayCount: 800, // 1x1 pixel mode
+        rayCount: 800, // equal to width = 1x1 pixel mode
         fieldOfVision: 55,
         resolution: 100 // configure each grid cell to be 100x100 pixels
     },
@@ -60,6 +60,9 @@ const state = {
     },
     scenes: {
         currentScene: Scenes.PRELOAD,
+        intro: {
+            timeOut: 0,
+        },
         title: {
             signalOffset: 0,
         },
@@ -108,6 +111,13 @@ const drawGunShells = () => {
 
 /** loads and sets up all the properties that make up the level (runs only once) **/
 const setUpLevel = () => {
+
+    // reset
+    context.globalAlpha = 1;
+    state.clickableContexts = [];
+
+    state.scenes.currentScene = Scenes.LEVEL;
+
     const { enemies, data } = levels[state.scenes.game.level];
 
     state.scenes.prelude.timeOut = 0;
@@ -133,6 +143,7 @@ const setUpLevel = () => {
         ));
     }
 
+    // sound configuration
     if (state.scenes.game.level === 1) {
         playSound('assets/sounds/helicopter.mp3');
     }
@@ -143,16 +154,22 @@ const setUpLevel = () => {
     }, 5000)
 }
 
-/** handles per-level special effects **/
+/** handles level-specific special effects **/
 const drawLevelEffects  = () => {
     switch (state.scenes.game.level) {
         case 1:
+
+            // prevent snow falling on inside section
             if (state.player.x > 2700 || state.player.y < 2400) {
                 weatherParticles(context, state);
             }
+
+            // helicopter moving away from player
             if (state.scenes.game.counter < 500) {
                 helicopter(context, state);
             }
+
+            // move to level 2
             if (state.player.x > 900 && state.player.x < 1000 && state.player.y > 4250) {
                 state.scenes.game.level = 2;
                 state.scenes.currentScene = Scenes.PRELUDE;
@@ -218,10 +235,12 @@ const update = () => {
             default:
                 break;
         }
-
     } else if (areAllImageAssetsLoaded()) {
         state.assetsLoaded = true;
-        state.scenes.currentScene = Scenes.PRELUDE;
+        state.scenes.intro.timeOut = 0;
+        state.scenes.currentScene = Scenes.INTRO;
+        stopMusic(state);
+        playMusic('assets/sounds/start.mp3', state);
     }
 };
 

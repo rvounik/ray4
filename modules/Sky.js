@@ -27,10 +27,10 @@ export const drawSky = (context, state, data) => {
             context.globalAlpha = 1.5 - auroraAlpha;
             drawAurora('aurora-right', 100);
             context.globalAlpha = 1;
-            // state.scenes.game.counter+=0.005;
 
             break;
         }
+
         case 2:
             const sky = findImageById(data.sky.imageId).img;
             const skyWidth = sky.width;

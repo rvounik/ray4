@@ -81,8 +81,6 @@ const getShortestRayToWallSegment = (rayRotation, state, grid) => {
         }
     }
 
-
-
     return { distance, verticalHit, wallId };
 };
 
@@ -122,8 +120,10 @@ export const drawWalls = (state, context, grid, data) => {
         let epsilon = 0.0001;
         let hitOffset;
 
-        // if fracX,fracY are almost equal, select hitOffset based on the angle instead: fracX for nearly horizontal rays and fracY for nearly vertical rays todo: no longer needed?
+        // if fracX,fracY are almost equal, select hitOffset based on the angle instead: fracX for nearly horizontal rays and fracY for nearly vertical rays
+        // todo: no longer needed?
         if (Math.abs(fracX - fracY) < epsilon) {
+            console.log('if you see this, this code is still needed and you can remove the comment')
             let normAngle = rayAngle % 360;
             if ((normAngle > 45 && normAngle < 135) || (normAngle > 225 && normAngle < 315)) {
                 hitOffset = fracX;
@@ -159,17 +159,14 @@ export const drawWalls = (state, context, grid, data) => {
                     context.globalAlpha = 1;
                 }
             }
-
         }
-
-
 
         // store the computed ray lengths in state (the enemy drawing makes use of this)
         state.wallDepthBuffer[ray] = rayLength;
     }
 };
 
-/** renders the floor using scaled bitmap slices to create a pseudo-3d effect (re-used my own routine here) */
+/** renders the floor using scaled bitmap slices to create a pseudo-3d effect (re-used my mario kart routine here) */
 export const drawFloor = (state, context, data) => {
     const scaleAmplitude = 0.1; // controls the zoom level of the texture. should be directly related to translationSpeed! (safe: 0.1)
 

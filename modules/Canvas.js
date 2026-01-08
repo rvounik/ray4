@@ -47,6 +47,7 @@ export const shadeCanvas = (context, alpha, {x,y,w,h}) => {
 /**
  * Adds a context to the context collection with provided details if it does not exist yet
  */
+// todo: repeat param seems unused
 export const addClickableContext = (clickableContexts, id, x, y, width, height, action, repeat = false) => {
     if (clickableContexts.filter(clickableContext => clickableContext.id === id).length === 0) {
         clickableContexts.push({ id, x, y, width, height, action, repeat });
